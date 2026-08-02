@@ -1,0 +1,26 @@
+{
+  "name": "compelem-router",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A router lib of compelem",
+  "main": "index.umd.js",
+  "module": "index.es.js",
+  "types": "index.d.ts",
+  "author": "holyhigh2",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "rimraf dist && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "compelem": "^0.25.2",
+    "myfx": "^1.15.10",
+    "query-string": "^9.4.1",
+    "rimraf": "^6.1.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.1",
+    "vite-plugin-dts": "^5.0.3",
+    "vite-plugin-static-copy": "^4.1.1"
+  }
+}

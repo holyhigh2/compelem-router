@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "types": [
+      "vite/client"
+    ],
+    "outDir": "/dist" // 输出目录配置，根据需要调整
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*",
+  ] // 包括src目录下的所有文件
+}
