@@ -6,6 +6,7 @@ import { HomeComp } from './components/HomeComp'
 import { NotFoundComp } from './components/NotFoundComp'
 import { PostComp } from './components/PostComp'
 import { ProductsComp } from './components/ProductsComp'
+import { StatusComp } from './components/StatusComp'
 import { UserComp } from './components/user/UserComp'
 import { UserPosts } from './components/user/UserPosts'
 import { UserProfile } from './components/user/UserProfile'
@@ -20,6 +21,8 @@ import { UserProfile } from './components/user/UserProfile'
  *  - 通配符兜底(*)
  *  - 重定向 redirect
  *  - 嵌套路由 + 嵌套 outlet（/user/:id 下挂 profile / posts 子路由）
+ *  - 多路由入口：两个 outlet() 并存，同一路由变化同时驱动两个入口；
+ *    入口通过 props 注入 entry 标识，路由组件据此显示不同内容（/status）
  *  - 命名路由跳转（RouterLink 的 to={{ name, params, query }}）
  *  - 查询参数 query / queryString
  *  - 三类全局守卫（beforeEach / beforeResolve / afterEach）
@@ -47,6 +50,10 @@ export class AppComp extends CompElem {
 
         // 命名路由 + 编程式导航演示页
         { path: '/products', name: 'Products', component: ProductsComp },
+
+        // 多路由入口演示：同一路由由页面上两个 outlet 入口同时响应，
+        // 路由组件按入口注入的 entry prop 显示不同内容（见 StatusComp / HomeComp）
+        { path: '/status', name: 'Status', component: StatusComp },
 
         // 动态参数 :id，且限制为纯数字（参数正则语法为 :id{\\d+}）
         { path: '/post/:id{\\d+}', name: 'Post', component: PostComp },
@@ -150,6 +157,32 @@ export class AppComp extends CompElem {
 
       .page { min-height: 220px; }
 
+      /* ---- 多路由入口：主/侧双入口布局 ---- */
+      .entries {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .entry-pane {
+        border: 1px dashed #e5e7eb;
+        border-radius: 10px;
+        padding: 10px;
+        min-width: 0;
+      }
+      .main-pane { flex: 1.4; }
+      .side-pane { flex: 1; background: #fafafa; }
+      .entry-label {
+        font-size: 11px;
+        color: #9ca3af;
+        font-family: ui-monospace, monospace;
+        margin-bottom: 8px;
+      }
+      .side-pane .page { min-height: 160px; }
+      @media (max-width: 640px) {
+        .main-pane, .side-pane { flex: 1 1 100%; }
+      }
+
       .vt-hint {
         color: #9ca3af;
         font-size: 12px;
@@ -193,11 +226,12 @@ export class AppComp extends CompElem {
   render(): Template {
     return h`
       <h1 class="title">compelem-router 特性示例</h1>
-      <div class="sub">Hash 模式 · 嵌套路由 · 动态/可选/正则参数 · 守卫 · <transition> 动画</div>
+      <div class="sub">Hash 模式 · 嵌套路由 · 多入口 · 动态/可选/正则参数 · 守卫 · &lt;transition&gt; 动画</div>
 
       <nav>
         <l-router-link to="/home">首页</l-router-link>
         <l-router-link to="/products">商品</l-router-link>
+        <l-router-link to="/status">多入口</l-router-link>
         <l-router-link to="/about">关于</l-router-link>
         <l-router-link to="/about/team">关于·团队</l-router-link>
         <l-router-link to="/post/1024">文章 1024</l-router-link>
@@ -214,15 +248,30 @@ export class AppComp extends CompElem {
         query: <b>${JSON.stringify(this.route.query)}</b>
       </div>
 
-      <!-- 路由器出口：包裹在 <transition> 中以获得切换动画 -->
-      <div class="page">
-        <transition name="page" mode="out-in">
-          ${outlet()}
-        </transition>
+      <!-- 多路由入口：两个 outlet() 并存，同一路由变化同时驱动两个入口刷新。
+           侧入口传入 { entry: 'side' }，路由组件据此显示不同内容 -->
+      <div class="entries">
+        <section class="entry-pane main-pane">
+          <div class="entry-label">入口 1 · outlet()</div>
+          <div class="page">
+            <transition name="page" mode="out-in">
+              ${outlet()}
+            </transition>
+          </div>
+        </section>
+        <section class="entry-pane side-pane">
+          <div class="entry-label">入口 2 · outlet({ entry: 'side' })</div>
+          <div class="page">
+            <transition name="page" mode="out-in">
+              ${outlet({ entry: 'side' })}
+            </transition>
+          </div>
+        </section>
       </div>
 
       <p class="vt-hint">
-        导航链接走 <code>&lt;transition&gt;</code> 组件级过渡；绿色按钮走 <code>startViewTransition</code> 整页级过渡
+        导航链接走 <code>&lt;transition&gt;</code> 组件级过渡；绿色按钮走 <code>startViewTransition</code> 整页级过渡；
+        两个入口同时响应同一路由，路由组件按入口注入的 <code>entry</code> prop 显示不同内容
       </p>
     `
   }
