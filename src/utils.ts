@@ -1,12 +1,11 @@
 import { CompElem, showTagError } from "compelem"
-import { assign, clone, compact, concat, each, eachRight, every, filter, flatMap, isEmpty, isString, isUndefined, join, last, map, remove, set, trim } from "myfx"
+import { clone, compact, concat, each, eachRight, every, filter, flatMap, isEmpty, isString, isUndefined, join, last, map, remove, set, trim } from "myfx"
 import qs from 'query-string'
-import { RouteReativeHub } from "./components/RouteReativeHub"
 import { ComponentRoutesMap, EntrancePropsMap, GlobalRouteNameMap, LastActiveLinks, NextRouteOnComp, OutletRenderedMap, PATH_PATTERN, PATH_SPLITTER, RootComponentContainerMap, ROUTE_REDIRECT_FLAT, RouteItemDerivedMap, RouteMatchedInfo, RouterLinkToExactMap, RouterLinkToMap } from "./const"
 import { Router } from "./router/Router"
+import { getRouteHub, setRoute } from "./store"
 import type { MatchableRouteMeta, Route, RouteItem, RouteItemDerivedInfo, RouteItemMatchedInfo, RouteOption, RouterOption } from "./types"
 
-let routeReativeHub: RouteReativeHub
 let router: Router
 //可选匹配列表
 let MatchableRoutes: MatchableRouteMeta[]
@@ -14,10 +13,8 @@ let MatchableRoutes: MatchableRouteMeta[]
 const CurrentRouteInfo: RouteItemMatchedInfo = { routeMeta: {} as any, matchedPath: [] }
 
 export function createRouter(options: RouterOption) {
-    if (!routeReativeHub) {
-        routeReativeHub = new RouteReativeHub();
-        routeReativeHub.setup();
-    }
+    // 初始化路由状态宿主（响应式代理的创建上下文）
+    getRouteHub()
     router = new Router(options.mode)
     if (options.beforeEach)
         router.beforeEach = options.beforeEach
@@ -37,12 +34,15 @@ export function createRouter(options: RouterOption) {
 export function useRouter() {
     return router
 }
-export function useRoute() {
-    return routeReativeHub.route
-}
 
-export async function renderRootRoute(container: Node, props?: Record<string, any>) {
+/**
+ * 执行路由匹配与守卫，**只更新路由状态，不操作 DOM**。
+ * 视图渲染由 outlet 结构指令负责——这样切换过程才会经过
+ * 指令更新周期（产出 REPLACE），从而支持过渡动画。
+ */
+export async function navigate() {
     router.routerInstance!.render(async (newUrl, newQueryString) => {
+        console.log('[navigate] cbk start, url:', newUrl)
         router.url = newUrl
 
         CurrentRouteInfo.params = {}
@@ -106,20 +106,28 @@ export async function renderRootRoute(container: Node, props?: Record<string, an
             }
         })
 
-        let cancelled = false
-        const r = CurrentRouteInfo.routeMeta.routeStack[startI];
-        let interrupted = await renderRoute(r, container, props, () => {
-            let toRoute = buildRoute(CurrentRouteInfo.routeMeta.routeItem)
-            assign(routeReativeHub.route, toRoute)
-        })
-        if (interrupted) {
-            cancelled = true
-            return false
+        const r = CurrentRouteInfo.routeMeta.routeStack[startI]
+        const fromRouteItem = RouteMatchedInfo.last.routeMeta?.routeItem
+
+        // 路由项守卫
+        if (r?.beforeEnter instanceof Function) {
+            let rs = await r.beforeEnter(r, fromRouteItem)
+            if (rs !== true) return false
         }
-        if (!cancelled) {
-            //todo 这里需要先调用路由前守卫，如果禁止跳转则
-            RouteMatchedInfo.last = clone(CurrentRouteInfo)
-        }
+
+        let fromRoute = buildRoute(fromRouteItem, RouteMatchedInfo.last.matchedPath)
+        let toRoute = buildRoute(CurrentRouteInfo.routeMeta.routeItem)
+        if (!toRoute) return false
+
+        // 全局守卫
+        if (await router.beforeEach(toRoute, fromRoute) !== true) return false
+        if (await router.beforeResolve(toRoute, fromRoute) !== true) return false
+
+        // 只更新路由状态：DOM 由 outlet 结构指令渲染
+        setRoute(toRoute, CurrentRouteInfo.routeMeta.routeItem, fromRoute)
+        router.afterEach(toRoute, fromRoute)
+
+        RouteMatchedInfo.last = clone(CurrentRouteInfo)
     })
 }
 export async function renderRoute(targetRoute: RouteItem, pointNode: Node, props?: Record<string, any>, updateRoute?: Function) {
@@ -189,7 +197,8 @@ export function buildRoute(routeItem?: RouteItem, matchedPath?: string[]) {
     let rs: Route = { path: '', fullPath: '' }
     let targetIndex = CurrentRouteInfo.routeMeta?.routeStack?.findIndex(item => item === routeItem) ?? -1
 
-    rs.path = (matchedPath ?? CurrentRouteInfo.matchedPath?.slice(0, targetIndex + 1))?.join('/')!
+    // 归一路径：始终带前导斜杠，与 router.url 语义一致
+    rs.path = '/' + ((matchedPath ?? CurrentRouteInfo.matchedPath?.slice(0, targetIndex + 1))?.join('/') ?? '')
     rs.query = CurrentRouteInfo.query
     rs.queryString = CurrentRouteInfo.queryString
     rs.fullPath = rs.path + (rs.queryString ? '?' + rs.queryString : '')

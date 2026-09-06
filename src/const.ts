@@ -23,5 +23,7 @@ export const ROUTE_REDIRECT_FLAT = 'c-route-redirect'
 
 //记录每个outlet渲染组件
 export const OutletRenderedMap = new WeakMap<Node, CompElem>()
+//outlet 挂载点 -> 组件守卫观察器（routeEnter/routeLeave）
+export const GuardObserverMap = new WeakMap<Node, MutationObserver>()
 //嵌套组件路由关系
 export const NextRouteOnComp = new Map<Constructor<any>, RouteItem>()

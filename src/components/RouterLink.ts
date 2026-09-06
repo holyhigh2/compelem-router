@@ -24,9 +24,9 @@ export class RouterLink extends CompElem<null> {
 
   //////////////////////////////////// props
   @prop({ type: [String, Object] }) to: string | RouteOption = ''
-  @prop replace = false
-  @prop activeClass = 'router-link-active'
-  @prop exact = false
+  @prop({ type: Boolean }) replace = false
+  @prop({ type: String }) activeClass = 'router-link-active'
+  @prop({ type: Boolean }) exact = false
 
   router!: Router
   weakThis: WeakRef<RouterLink>
@@ -90,10 +90,11 @@ export class RouterLink extends CompElem<null> {
     this.toggleActive(false)
   }
   toggleActive(force: boolean) {
+    const cls = this.activeClass ?? 'router-link-active'
     if (force) {
-      this.classList.add(this.activeClass)
+      this.classList.add(cls)
     } else {
-      this.classList.remove(this.activeClass)
+      this.classList.remove(cls)
     }
   }
   _getPath(): string {
