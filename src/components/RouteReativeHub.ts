@@ -7,8 +7,13 @@ import { Route } from "../types";
 @tag('l-router-route-hub', true)
 export class RouteReativeHub extends CompElem {
   @state route: Route = {
-    path: "",
-    fullPath: ""
+    path: "/",
+    fullPath: "/",
+    query: {},
+    queryString: "",
+    params: {},
+    matched: [],
+    meta: {}
   };
 
   @watch('route')

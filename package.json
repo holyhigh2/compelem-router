@@ -14,7 +14,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "compelem": "^0.25.2",
+    "compelem": "^0.28.0",
     "myfx": "^1.15.10",
     "query-string": "^9.4.1",
     "rimraf": "^6.1.3",

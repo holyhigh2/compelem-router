@@ -52,6 +52,9 @@ export async function navigate() {
 
         let targetRoute = matchRoutes(router.routes, newUrl)
 
+        // 无任何匹配（且未注册通配符兜底路由）时放弃本次导航
+        if (!targetRoute) return false
+
         let redirect = targetRoute.routeItem?.redirect
         if (redirect) {
             router.replace(redirect)
@@ -197,14 +200,18 @@ export function buildRoute(routeItem?: RouteItem, matchedPath?: string[]) {
     let rs: Route = { path: '', fullPath: '' }
     let targetIndex = CurrentRouteInfo.routeMeta?.routeStack?.findIndex(item => item === routeItem) ?? -1
 
+    if (RouteItemDerivedMap.get(routeItem)?.isDefault) {
+        targetIndex = (CurrentRouteInfo.matchedPath?.length ?? 1) - 1
+    }
+
     // 归一路径：始终带前导斜杠，与 router.url 语义一致
     rs.path = '/' + ((matchedPath ?? CurrentRouteInfo.matchedPath?.slice(0, targetIndex + 1))?.join('/') ?? '')
     rs.query = CurrentRouteInfo.query
     rs.queryString = CurrentRouteInfo.queryString
     rs.fullPath = rs.path + (rs.queryString ? '?' + rs.queryString : '')
     rs.params = Object.freeze(CurrentRouteInfo.params)
-    // rs.redirectedFrom = routeItem.redirect
     rs.meta = routeItem.meta
+    rs.name = routeItem.name
     rs.matched = clone(CurrentRouteInfo.routeMeta?.routeStack!)
 
     return rs
@@ -212,11 +219,11 @@ export function buildRoute(routeItem?: RouteItem, matchedPath?: string[]) {
 export function matchRoutes(routeList: RouteItem[], targetUrl: string) {
     let targetSegments = compact(targetUrl.split('/'))
 
-    let defaultRoute
+    let defaultRoute: MatchableRouteMeta | undefined
     each(routeList, r => {
         let derived = RouteItemDerivedMap.get(r)
         if (derived?.isDefault) {
-            defaultRoute = { routeItem: r }
+            defaultRoute = { routeItem: r, pathSegments: [], routeStack: [r], minLength: 0 }
         }
     })
     let matchList: MatchableRouteMeta[] = []
@@ -271,8 +278,13 @@ export function matchRoutes(routeList: RouteItem[], targetUrl: string) {
     let rs = rs1 ?? rs2
     if (rs) {
         CurrentRouteInfo.matchedPath = matchedPath
+        return rs
     }
-    return rs || defaultRoute
+
+    if (defaultRoute) {
+        CurrentRouteInfo.matchedPath = targetSegments
+    }
+    return defaultRoute
 }
 export function setEntryComponent(comp: CompElem, con: Node, props?: Record<string, any>) {
     if (router.entryComponent) return false

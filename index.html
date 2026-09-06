@@ -9,11 +9,23 @@
 </head>
 
 <body>
+  <script>
+    window.addEventListener('error', function (e) {
+      var d = document.createElement('pre');
+      d.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;background:#fee;color:#c00;padding:10px;white-space:pre-wrap;max-width:100vw;max-height:50vh;overflow:auto';
+      d.textContent = 'ERR: ' + ((e.error && (e.error.stack || e.error.message)) || e.message);
+      document.body.appendChild(d);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var d = document.createElement('pre');
+      d.style.cssText = 'position:fixed;top:0;left:0;z-index:99998;background:#eef;color:#00c;padding:10px;white-space:pre-wrap;max-width:100vw';
+      d.textContent = 'PROMISE: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason);
+      document.body.appendChild(d);
+    });
+  </script>
   <script type="module" src="./test/index.ts"></script>
 
-  <div id="app">
-    <page-test arg="args..."></page-test>
-  </div>
+  <app-comp></app-comp>
 </body>
 
 </html>
