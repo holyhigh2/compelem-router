@@ -1,0 +1,91 @@
+# compelem-router
+
+> A router library for CompElem — declarative routing for Web Components with hash mode, nested routes, and navigation guards.
+
+## Docs
+
+- [README](./README.md) - Installation, usage, and API reference (Chinese)
+- [GitHub Repository](https://github.com/holyhigh2/compelem-router) - Source code and issues
+
+## Features
+
+- Hash mode routing based on `location.hash`
+- Nested routes with `children` configuration
+- Path syntax: static segments, dynamic `:id`, regex `:id{\d+}`, optional `?:id`, wildcard `*`
+- Redirect and fallback routes
+- Named routes with `name` + `params` / `query` navigation
+- Navigation guards: global (`beforeEach`/`beforeResolve`/`afterEach`), route-level (`beforeEnter`), component-level (`routeEnter`/`routeUpdate`/`routeLeave`)
+- `<l-router-link>` component with automatic active class
+- Reactive route state with `useRoute()`
+
+## Quick Start
+
+```ts
+import { CompElem, defineComponents, h, tag } from 'compelem'
+import { createRouter, outlet } from 'compelem-router'
+
+@tag('app-root')
+export class App extends CompElem {
+  constructor() {
+    super()
+    createRouter({
+      mode: 'hash',
+      routes: [
+        { path: '/', redirect: '/home' },
+        { path: '/home', component: HomeComp, name: 'Home' },
+        { path: '/user/:id', component: UserComp },
+        { path: '*', redirect: '/' }
+      ]
+    })
+  }
+
+  render() {
+    return h`<div>
+      <nav>
+        <l-router-link .to="/home">Home</l-router-link>
+      </nav>
+      ${outlet()}
+    </div>`
+  }
+}
+
+defineComponents()
+```
+
+## API
+
+### createRouter(options: RouterOption): Router
+
+Create a router instance.
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `mode` | `RouterMode` | `'hash'` (currently supported) |
+| `routes` | `RouteItem[]` | Route table |
+| `beforeEach` | `(to, from) => Promise<boolean>` | Global before each guard |
+| `beforeResolve` | `(to, from) => Promise<boolean>` | Global before resolve guard |
+| `afterEach` | `(to, from) => void` | Global after each hook |
+
+### useRouter(): Router
+
+Get the router instance (singleton).
+
+| Method | Description |
+| --- | --- |
+| `push(route)` | Navigate with new history entry |
+| `replace(route)` | Navigate replacing current entry |
+| `back()` | Go back |
+| `forward()` | Go forward |
+| `go(delta)` | Go delta steps |
+
+### outlet(): Directive
+
+Route content outlet directive for rendering matched components.
+
+### useRoute(): Route
+
+Get reactive current route information.
+
+### onRouteChange(cb): () => void
+
+Subscribe to route changes, returns unsubscribe function.

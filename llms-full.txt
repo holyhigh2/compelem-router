@@ -1,0 +1,299 @@
+# compelem-router - Full API Reference
+
+## Overview
+
+compelem-router is a declarative routing library for CompElem Web Components. It provides hash-based routing with nested routes, navigation guards, and reactive route state.
+
+## Installation
+
+```bash
+npm install compelem-router compelem myfx query-string
+```
+
+## Import
+
+```ts
+import { createRouter, outlet, useRouter, useRoute, onRouteChange } from 'compelem-router'
+```
+
+---
+
+## createRouter(options: RouterOption): Router
+
+Creates a router instance and initializes the route table.
+
+### RouterOption
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `mode` | `RouterMode` | `'hash'` (currently supported); `'history'` reserved |
+| `routes` | `RouteItem[]` | Route table |
+| `beforeEach` | `(to, from) => Promise<boolean>` | Global before each guard |
+| `beforeResolve` | `(to, from) => Promise<boolean>` | Global before resolve guard |
+| `afterEach` | `(to, from) => void` | Global after each hook |
+
+### RouteItem
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | `string` | Route path (required). Child routes use relative paths |
+| `name` | `string` | Route name (globally unique) |
+| `component` | `Constructor<any>` | Route component |
+| `redirect` | `string` | Redirect path |
+| `children` | `RouteItem[]` | Child routes |
+| `meta` | `Record<string, any>` | Route metadata |
+| `beforeEnter` | `(to, from) => Promise<boolean>` | Route-level guard |
+
+### Path Syntax
+
+| Syntax | Example | Description |
+| --- | --- | --- |
+| Static segment | `/home` | Exact match |
+| Dynamic parameter | `/user/:id` | Matches any segment, accessed via `route.params.id` |
+| Parameter regex | `/user/:id{\d+}` | Only matches regex (numbers) |
+| Optional parameter | `/list/?:id` | End segment optional |
+| Wildcard | `*` | Fallback route |
+
+---
+
+## Router Instance
+
+### push(route: string | RouteOption): Promise<void>
+
+Navigate with new history entry. Resolves after view update.
+
+```ts
+await router.push('/about')
+await router.push({ name: 'UserDetail', params: { id: 123 }, query: { tab: 'info' } })
+```
+
+### replace(route: string | RouteOption): Promise<void>
+
+Navigate replacing current history entry.
+
+### back(): void
+
+Go back (same as `history.back()`).
+
+### forward(): void
+
+Go forward (same as `history.forward()`).
+
+### go(delta: number): void
+
+Go delta steps (same as `history.go()`).
+
+---
+
+## RouteOption
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Target route name |
+| `path` | `string` | Target path (alternative to `name`) |
+| `params` | `Record<string, string \| number>` | Dynamic route parameters (required for dynamic segments) |
+| `query` | `Record<string, string \| number> \| string` | URL query parameters |
+
+---
+
+## outlet(): Directive
+
+Route content outlet directive for rendering matched components.
+
+```ts
+render() {
+  return h`<div>${outlet()}</div>`
+}
+```
+
+**Root outlet:** Uses structural directive rendering, supports `<transition>` for route animations.
+
+**Nested outlet:** Imperatively renders child routes.
+
+**With props:**
+```ts
+${outlet({ userId: 1 })}
+```
+
+---
+
+## useRoute(): Route
+
+Returns reactive current route information.
+
+**Important:** Must bind to component's reactive field for subscription:
+
+```ts
+@state route: Route = useRoute()
+```
+
+### Route Object
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | `string` | Current matched path (with leading `/`) |
+| `fullPath` | `string` | Full path with query parameters |
+| `params` | `Record<string, string \| string[]>` | Dynamic route parameters (frozen) |
+| `query` | `Record<string, string \| string[]>` | URL query parameters |
+| `queryString` | `string` | Query parameters string |
+| `matched` | `RouteItem[]` | Matched route items array |
+| `meta` | `Record<string, any>` | Route metadata |
+
+---
+
+## onRouteChange(cb: RouteChangeCallback): () => void
+
+Subscribe to route changes. Returns unsubscribe function.
+
+```ts
+const off = onRouteChange((to, from) => {
+  console.log(to.path, from?.path)
+})
+// Unsubscribe
+off()
+```
+
+---
+
+## RouterLink Component (`<l-router-link>`)
+
+Route link component with automatic active class.
+
+| Props | Type | Default | Description |
+| --- | --- | --- | --- |
+| `to` | `string \| RouteOption` | `''` | Target path |
+| `replace` | `boolean` | `false` | Use replace navigation |
+| `activeClass` | `string` | `'router-link-active'` | Active class name |
+| `exact` | `boolean` | `false` | Exact match mode |
+
+```ts
+render() {
+  return h`<nav>
+    <l-router-link .to="/home">Home</l-router-link>
+    <l-router-link .to=${{ name: 'UserDetail', params: { id: 1 } }}>User 1</l-router-link>
+  </nav>`
+}
+```
+
+---
+
+## Navigation Guards
+
+### Global Guards
+
+```ts
+const router = createRouter({
+  mode: 'hash',
+  routes: [...],
+  async beforeEach(to, from) {
+    return true // true to proceed
+  },
+  async beforeResolve(to, from) {
+    return true
+  },
+  afterEach(to, from) {
+    console.log('Navigation complete', to.fullPath)
+  }
+})
+```
+
+### Route-level Guard
+
+```ts
+{
+  path: '/admin',
+  component: AdminComp,
+  async beforeEnter(to, from) {
+    return await checkAuth()
+  }
+}
+```
+
+### Component Guards
+
+```ts
+@tag('user-comp')
+export class UserComp extends CompElem {
+  routeEnter(to: Route, from?: Route) { }
+  routeUpdate(to: Route, from?: Route) { }
+  routeLeave(to: Route, from?: Route) { }
+}
+```
+
+### Guard Execution Order
+
+```
+URL change
+  → Route matching
+  → Route guard beforeEnter
+  → Global guards beforeEach → beforeResolve
+  → Update route state (trigger view render, component guards)
+  → Global hook afterEach
+```
+
+---
+
+## Exports
+
+```ts
+// Components
+export { RouterLink }              // <l-router-link>
+
+// Directives
+export { outlet }                  // Route outlet directive
+
+// Router
+export { createRouter }            // Create router instance
+export { useRouter }               // Get router instance
+
+// Route state
+export { useRoute }                // Reactive route info
+export { onRouteChange }           // Subscribe to route changes
+
+// Types
+export type { Route, RouteItem, RouteOption, RouterOption, ... }
+export { RouterMode }              // 'hash' | 'history'
+```
+
+---
+
+## Types
+
+```ts
+type RouterMode = 'hash' | 'history'
+
+interface RouteItem {
+  path: string
+  name?: string
+  component?: Constructor<any>
+  redirect?: string
+  children?: RouteItem[]
+  meta?: Record<string, any>
+  beforeEnter?: (to: Route, from?: Route) => Promise<boolean>
+}
+
+interface RouteOption {
+  name?: string
+  path?: string
+  params?: Record<string, string | number>
+  query?: Record<string, string | number> | string
+}
+
+interface Router {
+  push(route: string | RouteOption): Promise<void>
+  replace(route: string | RouteOption): Promise<void>
+  back(): void
+  forward(): void
+  go(delta: number): void
+}
+
+interface Route {
+  path: string
+  fullPath: string
+  params: Record<string, string | string[]>
+  query: Record<string, string | string[]>
+  queryString: string
+  matched: RouteItem[]
+  meta: Record<string, any>
+}
+```
