@@ -3,7 +3,8 @@ import { clone, compact, concat, each, eachRight, every, filter, flatMap, isEmpt
 import qs from 'query-string'
 import { ComponentRoutesMap, EntrancePropsMap, GlobalRouteNameMap, LastActiveLinks, NextRouteOnComp, OutletRenderedMap, PATH_PATTERN, PATH_SPLITTER, RootComponentContainerMap, ROUTE_REDIRECT_FLAT, RouteItemDerivedMap, RouteMatchedInfo, RouterLinkToExactMap, RouterLinkToMap } from "./const"
 import { Router } from "./router/Router"
-import { getRouteHub, setRoute } from "./store"
+import { registerRouterDevtools, type RouterDevtoolsEntry, type RouterDevtoolsRouteNode } from "./devtools"
+import { getLastRouteChange, getRouteHub, getRouteVersion, onRouteChange, setRoute } from "./store"
 import type { MatchableRouteMeta, Route, RouteItem, RouteItemDerivedInfo, RouteItemMatchedInfo, RouteOption, RouterOption } from "./types"
 
 let router: Router
@@ -28,6 +29,8 @@ export function createRouter(options: RouterOption) {
         buildPathSegments(r, segs, null)
     })
     router.routes = options.routes
+    // devtools 接入点：未安装 devtools 时这里只是往 globalThis 挂一个惰性 provider
+    registerRouterDevtools(buildRouterDevtoolsEntry(options.mode))
     return router
 }
 
@@ -216,7 +219,14 @@ export function buildRoute(routeItem?: RouteItem, matchedPath?: string[]) {
 
     return rs
 }
-export function matchRoutes(routeList: RouteItem[], targetUrl: string) {
+/**
+ * 路由匹配。**只做匹配，不落地路由状态**（状态由调用方决定写到哪里）。
+ *
+ * @param sink 匹配结果的写入目标。默认写模块级的 `CurrentRouteInfo`（即真实的
+ *   当前路由状态）。devtools 的「URL 试算」会传入一个临时 sink，从而在不污染
+ *   当前路由的前提下回答"这个 URL 会命中哪条路由"。
+ */
+export function matchRoutes(routeList: RouteItem[], targetUrl: string, sink: RouteItemMatchedInfo = CurrentRouteInfo) {
     let targetSegments = compact(targetUrl.split('/'))
 
     let defaultRoute: MatchableRouteMeta | undefined
@@ -249,12 +259,12 @@ export function matchRoutes(routeList: RouteItem[], targetUrl: string) {
                     let testStr = tSeg.replace(rs[0], '')
                     let expChecker = new RegExp(exp)
                     if (expChecker.test(testStr)) {
-                        CurrentRouteInfo.params![param] = testStr
+                        sink.params![param] = testStr
                     } else {
                         return []
                     }
                 } else {
-                    CurrentRouteInfo.params![param] = tSeg
+                    sink.params![param] = tSeg
                 }
                 return r
             }
@@ -277,15 +287,134 @@ export function matchRoutes(routeList: RouteItem[], targetUrl: string) {
     let rs2 = alternatives[0]
     let rs = rs1 ?? rs2
     if (rs) {
-        CurrentRouteInfo.matchedPath = matchedPath
+        sink.matchedPath = matchedPath
         return rs
     }
 
     if (defaultRoute) {
-        CurrentRouteInfo.matchedPath = targetSegments
+        sink.matchedPath = targetSegments
     }
     return defaultRoute
 }
+/**
+ * 「URL → 命中哪条路由」试算。**完全无副作用**：
+ * 用一次性 sink 承接 matchRoutes 的参数/路径写入，不触碰真实的 `CurrentRouteInfo`。
+ * 因此可以在任意时刻被 devtools 反复调用，用于回答"为什么我的路由没匹配上"。
+ */
+export function tryMatchRoute(url: string) {
+    const sink: RouteItemMatchedInfo = {
+        routeMeta: {} as MatchableRouteMeta,
+        matchedPath: [],
+        params: {},
+        query: {},
+        queryString: '',
+    }
+    const meta = matchRoutes(router?.routes ?? [], url, sink)
+    if (!meta || !meta.routeItem) {
+        return { url, matched: false, chain: [], params: {}, matchedPath: sink.matchedPath ?? [] }
+    }
+    return {
+        url,
+        matched: true,
+        routeItem: toRouteBrief(meta.routeItem),
+        chain: (meta.routeStack ?? []).map(toRouteBrief),
+        params: { ...(sink.params ?? {}) },
+        matchedPath: sink.matchedPath ?? [],
+    }
+}
+
+// ---------------------------------------------------------------------------
+// devtools 接入
+// ---------------------------------------------------------------------------
+
+function componentName(c?: unknown) {
+    if (!c) return undefined
+    return (c as any).name || 'Anonymous'
+}
+
+/** RouteItem → 可序列化的简要投影（component 是构造函数，不能直接透传） */
+function toRouteBrief(r: RouteItem) {
+    return {
+        path: r.path,
+        name: r.name,
+        component: componentName(r.component),
+        redirect: r.redirect,
+    }
+}
+
+/** RouteItem → 可序列化的路由表节点（含 devtools 解释匹配用的段解析结果） */
+function toRouteNode(r: RouteItem): RouterDevtoolsRouteNode {
+    const derived = RouteItemDerivedMap.get(r)
+    return {
+        path: r.path,
+        name: r.name,
+        redirect: r.redirect,
+        component: componentName(r.component),
+        meta: r.meta,
+        hasBeforeEnter: typeof r.beforeEnter === 'function',
+        isDefault: !!derived?.isDefault,
+        segments: derived?.pathSegments?.map(s => ({
+            text: s.text,
+            isStatic: s.isStatic,
+            isWildcard: s.isWildcard,
+            isOptional: s.isOptional,
+        })),
+        children: r.children?.length ? r.children.map(toRouteNode) : undefined,
+    }
+}
+
+/** Route → 可序列化快照（matched 是 RouteItem[]，只保留 path/name/component） */
+function snapshotRoute(r?: Route | null) {
+    if (!r) return null
+    return {
+        path: r.path,
+        fullPath: r.fullPath,
+        hash: r.hash,
+        name: r.name,
+        params: r.params ? { ...r.params } : undefined,
+        query: r.query ? { ...r.query } : undefined,
+        queryString: r.queryString,
+        meta: r.meta,
+        matched: r.matched?.map(m => ({ path: m.path, name: m.name, component: componentName(m.component) })),
+    }
+}
+
+/** 组装登记项。全部能力以闭包形式持有，devtools.ts 因此不需要 import 本模块。 */
+function buildRouterDevtoolsEntry(mode: string): RouterDevtoolsEntry {
+    return {
+        id: 'router',
+        routes: () => (router?.routes ?? []).map(toRouteNode),
+        current: () => {
+            const snap = snapshotRoute(getRouteHub().route as Route)
+            if (!snap) return null
+            const [, lastFrom] = getLastRouteChange()
+            return {
+                ...snap,
+                version: getRouteVersion(),
+                from: snapshotRoute(lastFrom),
+                mode,
+                url: router?.url,
+            }
+        },
+        match: (url: string) => tryMatchRoute(url),
+        navigate: async (action, payload) => {
+            try {
+                switch (action) {
+                    case 'back': router.back(); return { ok: true }
+                    case 'forward': router.forward(); return { ok: true }
+                    case 'go': router.go(Number(payload) || 0); return { ok: true }
+                    case 'replace': await router.replace(payload); return { ok: true, url: router.url }
+                    case 'push':
+                    default: await router.push(payload); return { ok: true, url: router.url }
+                }
+            } catch (e: any) {
+                return { ok: false, error: String(e?.message ?? e) }
+            }
+        },
+        subscribe: (cb) => onRouteChange((to, from) => cb(snapshotRoute(to), snapshotRoute(from))),
+    }
+}
+
 export function setEntryComponent(comp: CompElem, con: Node, props?: Record<string, any>) {
     if (router.entryComponent) return false
     router.entryComponent = comp
