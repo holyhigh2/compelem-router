@@ -14,8 +14,8 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@compelem/compiler": "^0.30.0-beta.2",
-    "compelem": "^0.30.0-beta.2",
+    "@compelem/compiler": "^0.30.0-beta.3",
+    "compelem": "^0.30.0-beta.3",
     "myfx": "^2.0.0-beta.2",
     "query-string": "^9.4.1",
     "rimraf": "^6.1.3",
@@ -23,9 +23,5 @@
     "vite": "^8.1.1",
     "vite-plugin-dts": "^5.0.3",
     "vite-plugin-static-copy": "^4.1.1"
-  },
-  "peerDependencies": {
-    "compelem": ">=0.30.0",
-    "myfx": "^2.0.0-beta.2"
   }
 }
