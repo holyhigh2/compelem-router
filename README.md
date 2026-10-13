@@ -12,7 +12,7 @@ A router lib of compelem —— 基于 [compelem](https://www.npmjs.com/package/
 - **三类导航守卫**：全局守卫（`beforeEach` / `beforeResolve` / `afterEach`）、路由项守卫（`beforeEnter`）、组件守卫（`routeEnter` / `routeUpdate` / `routeLeave`）
 - **`<l-router-link>` 链接组件**：自动匹配当前路由并添加激活样式
 - **响应式路由状态**：`useRoute()` 获取响应式路由信息，`onRouteChange()` 订阅路由变更
-- **过渡动画友好**：根 outlet 走结构指令渲染路径，路由切换可配合 `<transition>` 实现过渡动画
+- **过渡动画友好**：根 outlet 走结构指令渲染路径
 
 ## 安装
 
@@ -51,7 +51,7 @@ export class App extends CompElem {
         <l-router-link .to="/user/1">用户1</l-router-link>
       </nav>
       <h3>路由出口</h3>
-      ${outlet()}
+      <div class="page">${outlet()}</div>
     </div>`
   }
 }
@@ -160,22 +160,26 @@ router.push({ name: 'UserDetail', params: { id: 123 }, query: { tab: 'info' } })
 
 ### outlet 指令
 
-路由内容显示出口，可在模板中任意位置使用：
+路由内容显示出口，**文本位指令**：
 
 ```ts
 import { outlet } from 'compelem-router'
 
 render() {
-  return h`<div>${outlet()}</div>`
+  return h`<div class="page">${outlet()}</div>`
 }
 ```
 
-- **根 outlet**（入口组件内的 outlet）：走结构指令渲染路径，路由切换经过指令更新周期（产出 REPLACE），可被 `<transition>` 包裹实现路由切换动画
+> ⚠️ 使用方需在 vite 配置里把本指令登记给编译插件，否则文本位插值会被编译成普通取值点、
+> 把指令函数源码当文本渲染出来：
+> `compelemCompiler({ knownDirectives: ['outlet'] })`
+
+- **根 outlet**（入口组件内的 outlet）：渲染当前匹配路由项的组件，路由变化时由 outlet 宿主 forceUpdate 驱动切换，可配合 `startViewTransition` / CSS 动画实现路由切换过渡
 - **嵌套 outlet**（路由组件内的 outlet）：命令式渲染子路由
 - `outlet(props)` 可传递属性对象给当前渲染的路由组件：
 
 ```ts
-${outlet({ userId: 1 })}
+<div class="page">${outlet({ userId: 1 })}</div>
 ```
 
 ### RouterLink 组件（`<l-router-link>`）

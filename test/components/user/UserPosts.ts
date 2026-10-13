@@ -9,8 +9,7 @@ import type { Route } from '../../../src/types'
 export class UserPosts extends CompElem {
   @state route: Route = useRoute()
 
-  // 子路由入场动画：嵌套 outlet 为命令式渲染，无法被 <transition> 包裹，
-  // 故在组件挂载时通过 :host 的 CSS 动画实现切换过渡。
+  // 子路由入场动画：嵌套 outlet 为命令式渲染，故在组件挂载时通过 :host 的 CSS 动画实现切换过渡。
   // 注意：compelem 组件样式必须经 @csscope 装饰器收集，条目须为 css tagged template。
   @csscope(Csscope.INNER)
   static get css() {

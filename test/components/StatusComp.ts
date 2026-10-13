@@ -1,4 +1,4 @@
-import { CompElem, css, csscope, Csscope, h, prop, state, tag, Template } from 'compelem'
+import { CompElem, css, csscope, Csscope, forEach, h, ifElse, prop, state, tag, Template } from 'compelem'
 import { useRoute } from '../../src'
 import type { Route } from '../../src/types'
 
@@ -28,44 +28,49 @@ export class StatusComp extends CompElem {
   ]
 
   render(): Template {
-    const isSide = this.entry === 'side'
-    const badge = h`<span class="badge">入口: ${isSide ? 'side（侧）' : 'main（主）'}</span>`
-
-    if (isSide) {
-      // 侧入口：紧凑视图（只显示前两项指标）
-      return h`
-        <div class="compact">
-          ${badge}
-          <h3>状态 · 紧凑</h3>
-          <ul>
-            ${this.metrics.slice(0, 2).map((m) => h`<li><b>${m.label}</b> ${m.value} <i>${m.trend}</i></li>`)}
-          </ul>
-          <p class="hint">侧入口渲染的实例，与主入口实例相互独立</p>
-        </div>
-      `
-    }
-
-    // 主入口：完整视图（指标网格 + 说明）
     return h`
-      <div class="full">
-        ${badge}
-        <h2>服务状态</h2>
-        <p>
-          本页由两个 <code>outlet()</code> 入口同时响应：主入口显示完整视图，
-          侧入口传入 <code>{ entry: 'side' }</code> 显示紧凑视图。
-          切换任意导航路由，两个入口会同时刷新。
-        </p>
-        <div class="grid">
-          ${this.metrics.map((m) => h`
-            <div class="metric">
-              <span class="label">${m.label}</span>
-              <span class="value">${m.value}</span>
-              <span class="trend">${m.trend}</span>
+      ${ifElse(
+        this.entry === 'side',
+        () => h`
+          <div class="compact">
+            <span class="badge">入口: side（侧）</span>
+            <h3>状态 · 紧凑</h3>
+            <ul>
+              ${forEach(
+                this.metrics.slice(0, 2),
+                m => m.label,
+                m => h`<li><b>${m.label}</b> ${m.value} <i>${m.trend}</i></li>`
+              )}
+            </ul>
+            <p class="hint">侧入口渲染的实例，与主入口实例相互独立</p>
+          </div>
+        `,
+        () => h`
+          <div class="full">
+            <span class="badge">入口: main（主）</span>
+            <h2>服务状态</h2>
+            <p>
+              本页由两个 <code>outlet()</code> 入口同时响应：主入口显示完整视图，
+              侧入口传入 <code>{ entry: 'side' }</code> 显示紧凑视图。
+              切换任意导航路由，两个入口会同时刷新。
+            </p>
+            <div class="grid">
+              ${forEach(
+                this.metrics,
+                m => m.label,
+                m => h`
+                  <div class="metric">
+                    <span class="label">${m.label}</span>
+                    <span class="value">${m.value}</span>
+                    <span class="trend">${m.trend}</span>
+                  </div>
+                `
+              )}
             </div>
-          `)}
-        </div>
-        <p class="hint">当前路由: <code>${this.route.path}</code> · 完整视图（entry=main）</p>
-      </div>
+            <p class="hint">当前路由: <code>${this.route.path}</code> · 完整视图（entry=main）</p>
+          </div>
+        `
+      )}
     `
   }
 

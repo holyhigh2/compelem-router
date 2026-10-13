@@ -39,19 +39,7 @@ export class UserComp extends CompElem {
           <l-router-link to="/user/${id}/profile">个人资料</l-router-link>
           <l-router-link to="/user/${id}/posts">动态</l-router-link>
         </div>
-        <div class="user-sub">
-          <!--
-            嵌套出口：渲染当前 /user/:id 下的子路由（profile / posts）。
-            重要：嵌套 outlet 走的是「命令式渲染」（renderRoute 直接增删组件），
-            并非结构指令（when / forEach），因此它无法被 <transition> 包裹产生过渡。
-            （<transition> 只对结构指令更新点生效，详见 src/directives/Outlet.ts 注释。）
-
-            所以子路由切换动画改在子组件的 :host 上用 CSS @keyframes 实现，
-            见 UserProfile / UserPosts 的 static get css。根出口（AppComp 内）
-            因为是 when() 结构指令，仍可用 <transition name="page"> 正常过渡。
-          -->
-          ${outlet()}
-        </div>
+        <div class="user-sub">${outlet()}</div>
       </div>
     `
   }

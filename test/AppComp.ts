@@ -1,4 +1,4 @@
-import { CompElem, css, csscope, Csscope, h, startViewTransition, state, tag, Template } from 'compelem'
+import { CompElem, css, csscope, Csscope, h, state, tag, Template } from 'compelem'
 import { createRouter, onRouteChange, outlet, useRoute, useRouter } from '../src'
 import type { Route } from '../src/types'
 import { AboutComp } from './components/AboutComp'
@@ -12,8 +12,7 @@ import { UserPosts } from './components/user/UserPosts'
 import { UserProfile } from './components/user/UserProfile'
 
 /**
- * 示例根组件：创建路由、渲染导航栏，并通过 <transition> 为根出口的
- * 路由切换添加过渡动画。
+ * 示例根组件：创建路由并渲染导航栏。
  *
  * 本示例覆盖了 compelem-router 的主要特性：
  *  - Hash 模式路由
@@ -28,8 +27,7 @@ import { UserProfile } from './components/user/UserProfile'
  *  - 三类全局守卫（beforeEach / beforeResolve / afterEach）
  *  - 路由项守卫 beforeEnter、组件守卫 routeEnter / routeUpdate / routeLeave
  *  - 响应式路由状态 useRoute + 路由变更订阅 onRouteChange
- *  - 路由切换动画：根出口用 <transition name="page">（结构指令包裹），
- *    嵌套子路由用组件级 CSS @keyframes（嵌套 outlet 为命令式渲染，无法被 <transition> 包裹）
+ *  - 路由切换动画：子路由用组件级 CSS @keyframes
  */
 @tag('app-comp')
 export class AppComp extends CompElem {
@@ -131,16 +129,6 @@ export class AppComp extends CompElem {
         margin-bottom: 12px;
       }
       nav .sep { color: #d1d5db; font-size: 12px; }
-      nav .vt {
-        margin-left: auto;
-        border: 0;
-        cursor: pointer;
-        background: #10b981;
-        color: #fff;
-        padding: 5px 11px;
-        border-radius: 6px;
-        font-size: 12px;
-      }
       /* l-router-link 的链接样式由组件自带（:host 默认样式 + :host(.router-link-active)），
          此处不再重复定义，宿主如需定制可在外部样式表中覆盖 */
 
@@ -183,23 +171,8 @@ export class AppComp extends CompElem {
         .main-pane, .side-pane { flex: 1 1 100%; }
       }
 
-      .vt-hint {
-        color: #9ca3af;
-        font-size: 12px;
-        margin-top: 10px;
-      }
-      .vt-hint code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
-
-      /* ---- 根出口路由切换动画（name=page, out-in 先离后入） ---- */
-      .page-enter-active, .page-leave-active {
-        transition: opacity .35s ease, transform .35s ease;
-      }
-      .page-enter-from { opacity: 0; transform: translateX(48px); }
-      .page-leave-to   { opacity: 0; transform: translateX(-48px); }
-
       /* 子路由（/user/:id 下的 profile / posts）的切换动画在子组件 :host
-         上用 CSS @keyframes 实现（@csscope 收集），因为嵌套 outlet 为命令式渲染、
-         无法被 <transition> 包裹。详见 UserProfile / UserPosts。 */
+         上用 CSS @keyframes 实现（@csscope 收集）。详见 UserProfile / UserPosts。 */
 
       l-router-link {
         display: inline-block;
@@ -226,7 +199,7 @@ export class AppComp extends CompElem {
   render(): Template {
     return h`
       <h1 class="title">compelem-router 特性示例</h1>
-      <div class="sub">Hash 模式 · 嵌套路由 · 多入口 · 动态/可选/正则参数 · 守卫 · &lt;transition&gt; 动画</div>
+      <div class="sub">Hash 模式 · 嵌套路由 · 多入口 · 动态/可选/正则参数 · 守卫</div>
 
       <nav>
         <l-router-link to="/home">首页</l-router-link>
@@ -238,7 +211,6 @@ export class AppComp extends CompElem {
         <span class="sep">|</span>
         <l-router-link to="/user/7/profile">用户 7</l-router-link>
         <l-router-link to="/definitely/not/exist">404</l-router-link>
-        <button class="vt" @click="${() => this.vtGo()}">VT 整页过渡</button>
       </nav>
 
       <div class="route-meta">
@@ -253,36 +225,18 @@ export class AppComp extends CompElem {
       <div class="entries">
         <section class="entry-pane main-pane">
           <div class="entry-label">入口 1 · outlet()</div>
-          <div class="page">
-            <transition name="page" mode="out-in">
-              ${outlet()}
-            </transition>
-          </div>
+          <div class="page">${outlet()}</div>
         </section>
         <section class="entry-pane side-pane">
           <div class="entry-label">入口 2 · outlet({ entry: 'side' })</div>
-          <div class="page">
-            <transition name="page" mode="out-in">
-              ${outlet({ entry: 'side' })}
-            </transition>
-          </div>
+          <div class="page">${outlet({ entry: 'side' })}</div>
         </section>
       </div>
 
-      <p class="vt-hint">
-        导航链接走 <code>&lt;transition&gt;</code> 组件级过渡；绿色按钮走 <code>startViewTransition</code> 整页级过渡；
-        两个入口同时响应同一路由，路由组件按入口注入的 <code>entry</code> prop 显示不同内容
+      <p class="sub">
+        两个入口同时响应同一路由，路由组件按入口注入的 <code>entry</code> prop 显示不同内容；
+        子路由切换动画走组件级 CSS @keyframes
       </p>
     `
-  }
-
-  /**
-   * 整页级过渡导航：push() 返回的 Promise 在「路由状态更新 + 视图重渲染」
-   * 完成后 resolve，直接 await 即可——VT 的新快照拍到的已是新 DOM。
-   */
-  private vtGo() {
-    startViewTransition(async () => {
-      await useRouter().push(this.route.path === '/about' ? '/home' : '/about')
-    })
   }
 }

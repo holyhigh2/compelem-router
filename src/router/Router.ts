@@ -51,12 +51,8 @@ export class Router {
     }
     /**
      * 向路由历史中增加一条记录并导航到指定地址。
-     * 返回的 Promise 在「路由状态更新 + 视图重渲染」完成后 resolve，
-     * 因此可以直接用于 startViewTransition：
-     * ```ts
-     * startViewTransition(async () => { await router.push('/about') })
-     * ```
-     * @param route 
+     * 返回的 Promise 在「路由状态更新 + 视图重渲染」完成后 resolve。
+     * @param route
      */
     push(route: string | RouteOption): Promise<void> {
         return this.navigateTo(() => this.routerInstance?.push(route))

@@ -1,8 +1,9 @@
+import { compelemCompiler } from '@compelem/compiler';
 import path, { resolve } from 'path';
+import ts from 'typescript';
 import { normalizePath } from 'vite';
 import dts from 'vite-plugin-dts';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import ts from 'typescript';
 
 /**
  * Vite 8 默认使用 oxc 转换 TS 装饰器，但 oxc 对 legacy（experimentalDecorators）
@@ -58,6 +59,7 @@ export default {
     // 由上方 legacyDecorators() 插件统一用 TypeScript 完成装饰器降级。
     oxc: false,
     plugins: [
+        compelemCompiler({ knownDirectives: ['outlet'] }),
         legacyDecorators(),
         dts({
             tsconfigPath: path.resolve(__dirname, 'tsconfig.build.json'),

@@ -98,21 +98,28 @@ Go delta steps (same as `history.go()`).
 
 ## outlet(): Directive
 
-Route content outlet directive for rendering matched components.
+Route content outlet directive for rendering matched components. Text-position directive.
 
 ```ts
 render() {
-  return h`<div>${outlet()}</div>`
+  return h`<div class="page">${outlet()}</div>`
 }
 ```
 
-**Root outlet:** Uses structural directive rendering, supports `<transition>` for route animations.
+Consumers must register it with the compiler plugin, otherwise the text interpolation is
+compiled as a plain value and renders the directive function source as text:
+
+```ts
+compelemCompiler({ knownDirectives: ['outlet'] })
+```
+
+**Root outlet:** Renders the currently matched route item; route changes are driven by the outlet host's `forceUpdate`.
 
 **Nested outlet:** Imperatively renders child routes.
 
 **With props:**
 ```ts
-${outlet({ userId: 1 })}
+<div class="page">${outlet({ userId: 1 })}</div>
 ```
 
 ---

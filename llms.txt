@@ -44,7 +44,7 @@ export class App extends CompElem {
       <nav>
         <l-router-link .to="/home">Home</l-router-link>
       </nav>
-      ${outlet()}
+      <div class="page">${outlet()}</div>
     </div>`
   }
 }
@@ -80,7 +80,7 @@ Get the router instance (singleton).
 
 ### outlet(): Directive
 
-Route content outlet directive for rendering matched components.
+Route content outlet directive for rendering matched components. Register with the compiler: `compelemCompiler({ knownDirectives: ['outlet'] })`.
 
 ### useRoute(): Route
 

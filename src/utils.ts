@@ -2,9 +2,9 @@ import { CompElem, showTagError } from "compelem"
 import { clone, compact, concat, each, eachRight, every, filter, flatMap, isEmpty, isString, isUndefined, join, last, map, remove, set, trim } from "myfx"
 import qs from 'query-string'
 import { ComponentRoutesMap, EntrancePropsMap, GlobalRouteNameMap, LastActiveLinks, NextRouteOnComp, OutletRenderedMap, PATH_PATTERN, PATH_SPLITTER, RootComponentContainerMap, ROUTE_REDIRECT_FLAT, RouteItemDerivedMap, RouteMatchedInfo, RouterLinkToExactMap, RouterLinkToMap } from "./const"
-import { Router } from "./router/Router"
 import { registerRouterDevtools, type RouterDevtoolsEntry, type RouterDevtoolsRouteNode } from "./devtools"
-import { getLastRouteChange, getRouteHub, getRouteVersion, onRouteChange, setRoute } from "./store"
+import { Router } from "./router/Router"
+import { getLastRouteChange, getRouteVersion, onRouteChange, routeProxy, setRoute } from "./store"
 import type { MatchableRouteMeta, Route, RouteItem, RouteItemDerivedInfo, RouteItemMatchedInfo, RouteOption, RouterOption } from "./types"
 
 let router: Router
@@ -14,8 +14,6 @@ let MatchableRoutes: MatchableRouteMeta[]
 const CurrentRouteInfo: RouteItemMatchedInfo = { routeMeta: {} as any, matchedPath: [] }
 
 export function createRouter(options: RouterOption) {
-    // 初始化路由状态宿主（响应式代理的创建上下文）
-    getRouteHub()
     router = new Router(options.mode)
     if (options.beforeEach)
         router.beforeEach = options.beforeEach
@@ -130,7 +128,7 @@ export async function navigate() {
         if (await router.beforeResolve(toRoute, fromRoute) !== true) return false
 
         // 只更新路由状态：DOM 由 outlet 结构指令渲染
-        setRoute(toRoute, CurrentRouteInfo.routeMeta.routeItem, fromRoute)
+        setRoute(toRoute, CurrentRouteInfo.routeMeta.routeStack?.[0] ?? CurrentRouteInfo.routeMeta.routeItem, fromRoute)
         router.afterEach(toRoute, fromRoute)
 
         RouteMatchedInfo.last = clone(CurrentRouteInfo)
@@ -385,7 +383,7 @@ function buildRouterDevtoolsEntry(mode: string): RouterDevtoolsEntry {
         id: 'router',
         routes: () => (router?.routes ?? []).map(toRouteNode),
         current: () => {
-            const snap = snapshotRoute(getRouteHub().route as Route)
+            const snap = snapshotRoute(routeProxy)
             if (!snap) return null
             const [, lastFrom] = getLastRouteChange()
             return {

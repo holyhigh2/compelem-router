@@ -1,4 +1,4 @@
-import { CompElem, css, csscope, Csscope, h, prop, state, tag, Template } from 'compelem'
+import { CompElem, css, csscope, Csscope, h, ifElse, prop, state, tag, Template } from 'compelem'
 import { onRouteChange, useRoute } from '../../src'
 import type { Route } from '../../src/types'
 
@@ -28,29 +28,27 @@ export class HomeComp extends CompElem {
   }
 
   render(): Template {
-    const isSide = this.entry === 'side'
-
-    if (isSide) {
-      // 侧入口：紧凑摘要
-      return h`
-        <div class="compact">
-          <span class="badge">入口: side（侧）</span>
-          <h3>首页 · 摘要</h3>
-          <p>path : <b>${this.route.path}</b></p>
-        </div>
-      `
-    }
-
-    // 主入口：完整内容
     return h`
-      <div class="card">
-        <span class="badge">入口: main（主）</span>
-        <h2>首页</h2>
-        <p>静态路由 <code>/home</code>。顶部导航的激活态通过 RouterLink 自动维护。</p>
-        <p>path : <b>${this.route.path}</b></p>
-        <p>fullPath : <b>${this.route.fullPath}</b></p>
-        <p>最近一次路由变更（onRouteChange）: <b>${this.lastChange || '-'}</b></p>
-      </div>
+      ${ifElse(
+        this.entry === 'side',
+        () => h`
+          <div class="compact">
+            <span class="badge">入口: side（侧）</span>
+            <h3>首页 · 摘要</h3>
+            <p>path : <b>${this.route.path}</b></p>
+          </div>
+        `,
+        () => h`
+          <div class="card">
+            <span class="badge">入口: main（主）</span>
+            <h2>首页</h2>
+            <p>静态路由 <code>/home</code>。顶部导航的激活态通过 RouterLink 自动维护。</p>
+            <p>path : <b>${this.route.path}</b></p>
+            <p>fullPath : <b>${this.route.fullPath}</b></p>
+            <p>最近一次路由变更（onRouteChange）: <b>${this.lastChange || '-'}</b></p>
+          </div>
+        `
+      )}
     `
   }
 
